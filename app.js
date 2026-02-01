@@ -143,8 +143,10 @@ function calc() {
   const income = state.incomeCents;
 
   const fixedExpensesTotal = state.fixed.reduce((s, e) => s + e.amountCents, 0);
-  const fixedPaid = state.fixed.reduce((s, e) => s + (e.paid ? e.amountCents : 0), 0);
-  const unpaidFixed = fixedExpensesTotal - fixedPaid;
+
+  // ✅ Fixes cochés uniquement (on garde pour le calcul du reste actuel)
+  const fixedPaidOnly = state.fixed.reduce((s, e) => s + (e.paid ? e.amountCents : 0), 0);
+  const unpaidFixed = fixedExpensesTotal - fixedPaidOnly;
 
   const courses = state.envelopes.courses;
   const plaisir = state.envelopes.plaisir;
@@ -154,7 +156,14 @@ function calc() {
     (courses.limitCents - courses.spentCents) +
     (plaisir.limitCents - plaisir.spentCents);
 
+  // ✅ NOUVEAU : budgets dépensés = ajoutés à "Fixes payés"
+  const budgetsSpent = courses.spentCents + plaisir.spentCents;
+
   const fixedTotal = fixedExpensesTotal + budgetsTotal;
+
+  // ✅ MODIF DEMANDÉE : "Fixes payés" = Fixes cochés + budgets dépensés
+  const fixedPaid = fixedPaidOnly + budgetsSpent;
+
   const fixedRemaining = unpaidFixed + budgetsRemaining;
 
   const izlySpent = state.izly.spentCents;
@@ -167,7 +176,7 @@ function calc() {
   // (fixes cochés + dépenses enregistrées)
   const currentLeft =
     income -
-    fixedPaid -
+    fixedPaidOnly -
     courses.spentCents -
     plaisir.spentCents -
     izlySpent -
@@ -446,4 +455,3 @@ if ("serviceWorker" in navigator) {
 }
 
 loadMonth();
-
