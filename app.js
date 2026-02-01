@@ -1,4 +1,4 @@
-const STORAGE_KEY = "budgetcheck:pwa:v2";
+const STORAGE_KEY = "budgetcheck:pwa:v3";
 
 function uid() {
   return Math.random().toString(16).slice(2) + Date.now().toString(16);
@@ -64,6 +64,7 @@ function defaultMonthData() {
       plaisir: { name: "Plaisir", limitCents: 20000, spentCents: 0, entries: [] },
     },
     izly: { spentCents: 0, entries: [] },
+    fuel: { spentCents: 0, entries: [] }, // Essence (comme Izly)
   };
 }
 
@@ -81,7 +82,6 @@ const els = {
   kFixedTotal: document.getElementById("kFixedTotal"),
   kFixedPaid: document.getElementById("kFixedPaid"),
   kFixedRemaining: document.getElementById("kFixedRemaining"),
-  kVarSpent: document.getElementById("kVarSpent"),
   kNetLeft: document.getElementById("kNetLeft"),
 
   // Fixes
@@ -112,6 +112,13 @@ const els = {
   izlyNote: document.getElementById("izlyNote"),
   izlyAdd: document.getElementById("izlyAdd"),
   izlyEntries: document.getElementById("izlyEntries"),
+
+  // Essence
+  fuelTotal: document.getElementById("fuelTotal"),
+  fuelAmount: document.getElementById("fuelAmount"),
+  fuelNote: document.getElementById("fuelNote"),
+  fuelAdd: document.getElementById("fuelAdd"),
+  fuelEntries: document.getElementById("fuelEntries"),
 };
 
 function loadMonth() {
@@ -128,35 +135,45 @@ function persist() {
 function calc() {
   const income = state.incomeCents;
 
-  const fixedTotal = state.fixed.reduce((s, e) => s + e.amountCents, 0);
+  const fixedExpensesTotal = state.fixed.reduce((s, e) => s + e.amountCents, 0);
   const fixedPaid = state.fixed.reduce((s, e) => s + (e.paid ? e.amountCents : 0), 0);
-  const fixedRemaining = fixedTotal - fixedPaid;
+  const unpaidFixed = fixedExpensesTotal - fixedPaid;
 
-  const coursesSpent = state.envelopes.courses.spentCents;
-  const funSpent = state.envelopes.plaisir.spentCents;
+  // Budgets (Courses + Plaisir) comptés dans le “fixe”
+  const courses = state.envelopes.courses;
+  const plaisir = state.envelopes.plaisir;
+
+  const budgetsTotal = courses.limitCents + plaisir.limitCents;
+  const budgetsRemaining = (courses.limitCents - courses.spentCents) + (plaisir.limitCents - plaisir.spentCents);
+
+  const fixedTotal = fixedExpensesTotal + budgetsTotal;
+  const fixedRemaining = unpaidFixed + budgetsRemaining;
+
+  // Dépenses cumulées “en plus”
   const izlySpent = state.izly.spentCents;
+  const fuelSpent = state.fuel.spentCents;
 
-  const varSpent = coursesSpent + funSpent + izlySpent;
-
-  // Ce que tu as demandé : relié au salaire initial
-  const netLeft = income - fixedTotal - varSpent;
+  // Reste dispo après avoir réservé Fixes+Budgets, puis on enlève Izly+Essence
+  const netLeft = income - fixedTotal - izlySpent - fuelSpent;
 
   return {
     income,
     fixedTotal,
     fixedPaid,
     fixedRemaining,
-    varSpent,
-    netLeft,
-    coursesSpent,
-    funSpent,
+    coursesLeft: courses.limitCents - courses.spentCents,
+    coursesSpent: courses.spentCents,
+    coursesLimit: courses.limitCents,
+    funLeft: plaisir.limitCents - plaisir.spentCents,
+    funSpent: plaisir.spentCents,
+    funLimit: plaisir.limitCents,
     izlySpent,
+    fuelSpent,
   };
 }
 
 function render() {
   els.monthLabel.textContent = currentMonth;
-
   const c = calc();
 
   // KPIs
@@ -164,8 +181,7 @@ function render() {
   els.kFixedTotal.textContent = `${centsToEuro(c.fixedTotal)} €`;
   els.kFixedPaid.textContent = `${centsToEuro(c.fixedPaid)} €`;
   els.kFixedRemaining.textContent = `${centsToEuro(c.fixedRemaining)} €`;
-  els.kVarSpent.textContent = `${centsToEuro(c.varSpent)} €`;
-  els.kNetLeft.textContent = `${centsToEuro(c.netLeft)} €`;
+  els.kNetLeft.textContent = `${centsToEuro(c.netLeft ?? (c.income - c.fixedTotal - c.izlySpent - c.fuelSpent))} €`;
 
   // Fixes badge
   const paidCount = state.fixed.filter((e) => e.paid).length;
@@ -214,7 +230,6 @@ function render() {
       });
 
       actions.appendChild(toggle);
-
       row.appendChild(left);
       row.appendChild(actions);
       els.fixedList.appendChild(row);
@@ -222,24 +237,22 @@ function render() {
   }
 
   // Envelopes UI
-  const courses = state.envelopes.courses;
-  const plaisir = state.envelopes.plaisir;
+  els.coursesLeft.textContent = `${centsToEuro(c.coursesLeft)} €`;
+  els.coursesLimit.textContent = `${centsToEuro(c.coursesLimit)} €`;
+  els.coursesSpent.textContent = `${centsToEuro(c.coursesSpent)} €`;
+  renderEntries(els.coursesEntries, state.envelopes.courses.entries);
 
-  const coursesLeft = courses.limitCents - courses.spentCents;
-  els.coursesLeft.textContent = `${centsToEuro(coursesLeft)} €`;
-  els.coursesLimit.textContent = `${centsToEuro(courses.limitCents)} €`;
-  els.coursesSpent.textContent = `${centsToEuro(courses.spentCents)} €`;
-  renderEntries(els.coursesEntries, courses.entries);
+  els.funLeft.textContent = `${centsToEuro(c.funLeft)} €`;
+  els.funLimit.textContent = `${centsToEuro(c.funLimit)} €`;
+  els.funSpent.textContent = `${centsToEuro(c.funSpent)} €`;
+  renderEntries(els.funEntries, state.envelopes.plaisir.entries);
 
-  const funLeft = plaisir.limitCents - plaisir.spentCents;
-  els.funLeft.textContent = `${centsToEuro(funLeft)} €`;
-  els.funLimit.textContent = `${centsToEuro(plaisir.limitCents)} €`;
-  els.funSpent.textContent = `${centsToEuro(plaisir.spentCents)} €`;
-  renderEntries(els.funEntries, plaisir.entries);
-
-  // Izly
+  // Izly + Essence
   els.izlyTotal.textContent = `${centsToEuro(state.izly.spentCents)} €`;
   renderEntries(els.izlyEntries, state.izly.entries);
+
+  els.fuelTotal.textContent = `${centsToEuro(state.fuel.spentCents)} €`;
+  renderEntries(els.fuelEntries, state.fuel.entries);
 }
 
 function renderEntries(container, entries) {
@@ -279,12 +292,10 @@ function renderEntries(container, entries) {
 function addEnvelopeSpend(key, amountStr, noteStr) {
   const amountCents = euroToCents(amountStr);
   const note = (noteStr || "").trim();
-
   if (!amountCents || amountCents <= 0) {
     alert("Montant invalide (ex: 4,50).");
     return false;
   }
-
   const env = state.envelopes[key];
   env.spentCents += amountCents;
   env.entries.push({ id: uid(), ts: Date.now(), amountCents, note });
@@ -293,17 +304,15 @@ function addEnvelopeSpend(key, amountStr, noteStr) {
   return true;
 }
 
-function addIzlySpend(amountStr, noteStr) {
+function addCumulativeSpend(obj, amountStr, noteStr) {
   const amountCents = euroToCents(amountStr);
   const note = (noteStr || "").trim();
-
   if (!amountCents || amountCents <= 0) {
     alert("Montant invalide (ex: 10,00).");
     return false;
   }
-
-  state.izly.spentCents += amountCents;
-  state.izly.entries.push({ id: uid(), ts: Date.now(), amountCents, note });
+  obj.spentCents += amountCents;
+  obj.entries.push({ id: uid(), ts: Date.now(), amountCents, note });
   persist();
   render();
   return true;
@@ -333,15 +342,20 @@ els.funAdd.addEventListener("click", () => {
   }
 });
 els.izlyAdd.addEventListener("click", () => {
-  if (addIzlySpend(els.izlyAmount.value, els.izlyNote.value)) {
+  if (addCumulativeSpend(state.izly, els.izlyAmount.value, els.izlyNote.value)) {
     els.izlyAmount.value = "";
     els.izlyNote.value = "";
   }
 });
+els.fuelAdd.addEventListener("click", () => {
+  if (addCumulativeSpend(state.fuel, els.fuelAmount.value, els.fuelNote.value)) {
+    els.fuelAmount.value = "";
+    els.fuelNote.value = "";
+  }
+});
 
 els.resetMonthBtn.addEventListener("click", () => {
-  if (!confirm("Reset du mois : décocher toutes les fixes + remettre Courses/Plaisir/Izly à zéro ?")) return;
-  // on garde les montants et la structure, on remet juste le suivi à 0
+  if (!confirm("Reset du mois : décocher fixes + remettre Courses/Plaisir/Izly/Essence à zéro ?")) return;
   state.fixed = state.fixed.map((e) => ({ ...e, paid: false }));
   state.envelopes.courses.spentCents = 0;
   state.envelopes.courses.entries = [];
@@ -349,11 +363,13 @@ els.resetMonthBtn.addEventListener("click", () => {
   state.envelopes.plaisir.entries = [];
   state.izly.spentCents = 0;
   state.izly.entries = [];
+  state.fuel.spentCents = 0;
+  state.fuel.entries = [];
   persist();
   render();
 });
 
-// Service worker (offline)
+// Offline (service worker)
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {
     navigator.serviceWorker.register("./sw.js").catch(() => {});
