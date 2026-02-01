@@ -1,4 +1,4 @@
-const STORAGE_KEY = "budgetcheck:pwa:v4";
+const STORAGE_KEY = "budgetcheck:pwa:v5";
 
 function uid() {
   return Math.random().toString(16).slice(2) + Date.now().toString(16);
@@ -41,15 +41,13 @@ function saveAll(all) {
 
 function defaultMonthData() {
   return {
-    incomeCents: 200000, // valeur par défaut (modifiable via l'input)
+    incomeCents: 200000, // modifiable
     fixed: [
-      // Appart
       { id: uid(), group: "Appart", name: "Loyer", amountCents: 65000, paid: false },
       { id: uid(), group: "Appart", name: "Assurance habitation", amountCents: 2000, paid: false },
       { id: uid(), group: "Appart", name: "Électricité", amountCents: 10700, paid: false },
       { id: uid(), group: "Appart", name: "Eau", amountCents: 1800, paid: false },
 
-      // Perso
       { id: uid(), group: "Perso", name: "Téléphone + ChatGPT + Crunchyroll", amountCents: 4600, paid: false },
       { id: uid(), group: "Perso", name: "Assurance voiture", amountCents: 6500, paid: false },
       { id: uid(), group: "Perso", name: "Coiffeur", amountCents: 2000, paid: false },
@@ -64,7 +62,7 @@ function defaultMonthData() {
       plaisir: { limitCents: 20000, spentCents: 0, entries: [] },
     },
     izly: { spentCents: 0, entries: [] },
-    fuel: { spentCents: 0, entries: [] }, // Essence
+    fuel: { spentCents: 0, entries: [] },
   };
 }
 
@@ -126,12 +124,10 @@ function persist() {
 function calc() {
   const income = state.incomeCents;
 
-  // Fixes Appart + Perso
   const fixedExpensesTotal = state.fixed.reduce((s, e) => s + e.amountCents, 0);
   const fixedPaid = state.fixed.reduce((s, e) => s + (e.paid ? e.amountCents : 0), 0);
   const unpaidFixed = fixedExpensesTotal - fixedPaid;
 
-  // Budgets (Courses + Plaisir) comptés dans le “fixe”
   const courses = state.envelopes.courses;
   const plaisir = state.envelopes.plaisir;
 
@@ -143,44 +139,28 @@ function calc() {
   const fixedTotal = fixedExpensesTotal + budgetsTotal;
   const fixedRemaining = unpaidFixed + budgetsRemaining;
 
-  // Cumul “hors budgets”
   const izlySpent = state.izly.spentCents;
   const fuelSpent = state.fuel.spentCents;
 
-  // Reste sur salaire demandé
   const netLeft = income - fixedTotal - izlySpent - fuelSpent;
 
-  return {
-    fixedTotal,
-    fixedPaid,
-    fixedRemaining,
-    netLeft,
-    courses,
-    plaisir,
-    izlySpent,
-    fuelSpent,
-  };
+  return { fixedTotal, fixedPaid, fixedRemaining, netLeft };
 }
 
 function render() {
   els.monthLabel.textContent = currentMonth;
-
-  // salaire input (affiché)
   els.incomeInput.value = centsToEuro(state.incomeCents);
 
   const c = calc();
-
-  // KPIs
   els.kFixedTotal.textContent = `${centsToEuro(c.fixedTotal)} €`;
   els.kFixedPaid.textContent = `${centsToEuro(c.fixedPaid)} €`;
   els.kFixedRemaining.textContent = `${centsToEuro(c.fixedRemaining)} €`;
   els.kNetLeft.textContent = `${centsToEuro(c.netLeft)} €`;
 
-  // Fixes badge
   const paidCount = state.fixed.filter((e) => e.paid).length;
   els.fixedBadge.textContent = `${paidCount} / ${state.fixed.length} payées`;
 
-  // Fixes list (Appart / Perso)
+  // Fixes list grouped
   els.fixedList.innerHTML = "";
   const groups = ["Appart", "Perso"];
   for (const g of groups) {
@@ -230,16 +210,18 @@ function render() {
   }
 
   // Courses
-  els.coursesLimit.textContent = `${centsToEuro(state.envelopes.courses.limitCents)} €`;
-  els.coursesSpent.textContent = `${centsToEuro(state.envelopes.courses.spentCents)} €`;
-  els.coursesLeft.textContent = `${centsToEuro(state.envelopes.courses.limitCents - state.envelopes.courses.spentCents)} €`;
-  renderEntries(els.coursesEntries, state.envelopes.courses.entries);
+  const courses = state.envelopes.courses;
+  els.coursesLimit.textContent = `${centsToEuro(courses.limitCents)} €`;
+  els.coursesSpent.textContent = `${centsToEuro(courses.spentCents)} €`;
+  els.coursesLeft.textContent = `${centsToEuro(courses.limitCents - courses.spentCents)} €`;
+  renderEntries(els.coursesEntries, courses.entries);
 
   // Plaisir
-  els.funLimit.textContent = `${centsToEuro(state.envelopes.plaisir.limitCents)} €`;
-  els.funSpent.textContent = `${centsToEuro(state.envelopes.plaisir.spentCents)} €`;
-  els.funLeft.textContent = `${centsToEuro(state.envelopes.plaisir.limitCents - state.envelopes.plaisir.spentCents)} €`;
-  renderEntries(els.funEntries, state.envelopes.plaisir.entries);
+  const plaisir = state.envelopes.plaisir;
+  els.funLimit.textContent = `${centsToEuro(plaisir.limitCents)} €`;
+  els.funSpent.textContent = `${centsToEuro(plaisir.spentCents)} €`;
+  els.funLeft.textContent = `${centsToEuro(plaisir.limitCents - plaisir.spentCents)} €`;
+  renderEntries(els.funEntries, plaisir.entries);
 
   // Izly
   els.izlyTotal.textContent = `${centsToEuro(state.izly.spentCents)} €`;
@@ -252,7 +234,7 @@ function render() {
 
 function renderEntries(container, entries) {
   container.innerHTML = "";
-  const list = [...entries].slice(-8).reverse(); // dernières 8
+  const list = [...entries].slice(-8).reverse();
   if (list.length === 0) return;
 
   for (const it of list) {
@@ -334,7 +316,7 @@ els.fuelAdd.addEventListener("click", () => {
   if (addCumulativeSpend(state.fuel, els.fuelAmount.value)) els.fuelAmount.value = "";
 });
 
-// Salaire modifiable (on sauvegarde quand tu changes la valeur)
+// Salaire modifiable (sauvegarde quand tu changes)
 els.incomeInput.addEventListener("change", () => {
   state.incomeCents = euroToCents(els.incomeInput.value);
   persist();
