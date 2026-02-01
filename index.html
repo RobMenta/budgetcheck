@@ -176,9 +176,19 @@
         </div>
       </div>
 
+      <!-- ✅ NOUVEAU : Reste actuel -->
+      <div class="divider"></div>
+      <div class="kpis">
+        <div class="kpi">
+          <div class="kpiLab">Reste actuel</div>
+          <div class="kpiVal" id="kCurrentLeft">0,00 €</div>
+        </div>
+      </div>
+
       <div class="note">
         * Total fixe = (Appart+Perso) + (Courses 200 + Plaisir 200).<br/>
-        * Reste sur salaire = Salaire − Total fixe − (Izly + Essence).
+        * Reste sur salaire = Salaire − Total fixe − (Izly + Essence + Autres).<br/>
+        * Reste actuel = Salaire − (Fixes cochés + dépenses saisies).
       </div>
     </div>
 
@@ -250,6 +260,22 @@
 
           <div class="note">Essence s’additionne à chaque entrée.</div>
           <div id="fuelEntries"></div>
+        </div>
+
+        <!-- ✅ NOUVEAU : Autres -->
+        <div class="card">
+          <div class="cardTitle">
+            <span>Autres</span>
+            <span class="pill"><span>Total</span> <b id="otherTotal">0,00 €</b></span>
+          </div>
+
+          <div class="smallRow">
+            <input id="otherAmount" inputmode="decimal" placeholder="ex: 8,00" />
+            <button class="primary w120" id="otherAdd">OK</button>
+          </div>
+
+          <div class="note">Autres s’additionne à chaque entrée.</div>
+          <div id="otherEntries"></div>
         </div>
       </div>
     </div>
