@@ -278,7 +278,6 @@ function renderEntries(container, entries, onDelete) {
     del.style.fontWeight = "1000";
 
     del.addEventListener("click", () => {
-      if (!confirm("Supprimer cette dépense ?")) return;
       onDelete(it.id);
     });
 
@@ -398,4 +397,5 @@ if ("serviceWorker" in navigator) {
 }
 
 loadMonth();
+
 
