@@ -1,4 +1,4 @@
-const STORAGE_KEY = "budgetcheck:pwa:v5";
+const STORAGE_KEY = "budgetcheck:pwa:v6";
 
 function uid() {
   return Math.random().toString(16).slice(2) + Date.now().toString(16);
@@ -214,25 +214,29 @@ function render() {
   els.coursesLimit.textContent = `${centsToEuro(courses.limitCents)} €`;
   els.coursesSpent.textContent = `${centsToEuro(courses.spentCents)} €`;
   els.coursesLeft.textContent = `${centsToEuro(courses.limitCents - courses.spentCents)} €`;
-  renderEntries(els.coursesEntries, courses.entries);
+  renderEntries(els.coursesEntries, courses.entries, () => deleteEnvelopeEntry("courses", null));
 
   // Plaisir
   const plaisir = state.envelopes.plaisir;
   els.funLimit.textContent = `${centsToEuro(plaisir.limitCents)} €`;
   els.funSpent.textContent = `${centsToEuro(plaisir.spentCents)} €`;
   els.funLeft.textContent = `${centsToEuro(plaisir.limitCents - plaisir.spentCents)} €`;
-  renderEntries(els.funEntries, plaisir.entries);
+  renderEntries(els.funEntries, plaisir.entries, () => deleteEnvelopeEntry("plaisir", null));
 
   // Izly
   els.izlyTotal.textContent = `${centsToEuro(state.izly.spentCents)} €`;
-  renderEntries(els.izlyEntries, state.izly.entries);
+  renderEntries(els.izlyEntries, state.izly.entries, (id) => deleteCumulativeEntry("izly", id));
 
   // Essence
   els.fuelTotal.textContent = `${centsToEuro(state.fuel.spentCents)} €`;
-  renderEntries(els.fuelEntries, state.fuel.entries);
+  renderEntries(els.fuelEntries, state.fuel.entries, (id) => deleteCumulativeEntry("fuel", id));
 }
 
-function renderEntries(container, entries) {
+/**
+ * Render entries + bouton suppression.
+ * onDelete(id) est appelé quand on clique sur ✕
+ */
+function renderEntries(container, entries, onDelete) {
   container.innerHTML = "";
   const list = [...entries].slice(-8).reverse();
   if (list.length === 0) return;
@@ -255,14 +259,62 @@ function renderEntries(container, entries) {
     left.appendChild(main);
     left.appendChild(sub);
 
+    const rightWrap = document.createElement("div");
+    rightWrap.style.display = "flex";
+    rightWrap.style.alignItems = "center";
+    rightWrap.style.gap = "10px";
+
     const right = document.createElement("div");
     right.className = "entryAmt";
     right.textContent = `-${centsToEuro(it.amountCents)} €`;
 
+    const del = document.createElement("button");
+    del.textContent = "✕";
+    del.setAttribute("aria-label", "Supprimer");
+    del.style.padding = "8px 10px";
+    del.style.borderRadius = "10px";
+    del.style.background = "#2a1a1a";
+    del.style.color = "#ff6b6b";
+    del.style.fontWeight = "1000";
+
+    del.addEventListener("click", () => {
+      if (!confirm("Supprimer cette dépense ?")) return;
+      onDelete(it.id);
+    });
+
+    rightWrap.appendChild(right);
+    rightWrap.appendChild(del);
+
     row.appendChild(left);
-    row.appendChild(right);
+    row.appendChild(rightWrap);
     container.appendChild(row);
   }
+}
+
+function recomputeEnvelopeSpent(env) {
+  env.spentCents = env.entries.reduce((s, e) => s + e.amountCents, 0);
+}
+function recomputeCumulativeSpent(obj) {
+  obj.spentCents = obj.entries.reduce((s, e) => s + e.amountCents, 0);
+}
+
+// --- Suppressions ---
+// Courses / Plaisir : on enlève l'entrée et on recalcule spent
+function deleteEnvelopeEntry(key, id) {
+  const env = state.envelopes[key];
+  env.entries = env.entries.filter((e) => e.id !== id);
+  recomputeEnvelopeSpent(env);
+  persist();
+  render();
+}
+
+// Izly / Essence : on enlève l'entrée et on recalcule spent
+function deleteCumulativeEntry(which, id) {
+  const obj = which === "izly" ? state.izly : state.fuel;
+  obj.entries = obj.entries.filter((e) => e.id !== id);
+  recomputeCumulativeSpent(obj);
+  persist();
+  render();
 }
 
 function addEnvelopeSpend(key, amountStr) {
