@@ -44,18 +44,18 @@ function defaultMonthData() {
     incomeCents: 200000, // modifiable
     fixed: [
       { id: uid(), group: "Appart", name: "Loyer", amountCents: 65000, paid: false },
-      { id: uid(), group: "Appart", name: "Assurance habitation", amountCents: 2000, paid: false },
+      { id: uid(), group: "Appart", name: "Assurance habitation", amountCents: 1979, paid: false },
       { id: uid(), group: "Appart", name: "Électricité", amountCents: 10700, paid: false },
       { id: uid(), group: "Appart", name: "Eau", amountCents: 1800, paid: false },
 
-      { id: uid(), group: "Perso", name: "Téléphone + ChatGPT + Crunchyroll", amountCents: 4600, paid: false },
-      { id: uid(), group: "Perso", name: "Assurance voiture", amountCents: 6500, paid: false },
+      { id: uid(), group: "Perso", name: "Téléphone + ChatGPT + Crunchyroll", amountCents: 4597, paid: false },
+      { id: uid(), group: "Perso", name: "Assurance voiture", amountCents: 6845, paid: false },
       { id: uid(), group: "Perso", name: "Coiffeur", amountCents: 2000, paid: false },
-      { id: uid(), group: "Perso", name: "Spotify + YouTube", amountCents: 1200, paid: false },
-      { id: uid(), group: "Perso", name: "Netflix", amountCents: 1500, paid: false },
-      { id: uid(), group: "Perso", name: "Crédit voiture", amountCents: 30000, paid: false },
+      { id: uid(), group: "Perso", name: "Spotify + YouTube", amountCents: 1095, paid: false },
+      { id: uid(), group: "Perso", name: "Netflix", amountCents: 1499, paid: false },
+      { id: uid(), group: "Perso", name: "Crédit voiture", amountCents: 30043, paid: false },
       { id: uid(), group: "Perso", name: "Économie", amountCents: 15000, paid: false },
-      { id: uid(), group: "Perso", name: "Internet", amountCents: 2500, paid: false },
+      { id: uid(), group: "Perso", name: "Internet", amountCents: 2499, paid: false },
     ],
     envelopes: {
       courses: { limitCents: 20000, spentCents: 0, entries: [] },
@@ -446,3 +446,4 @@ if ("serviceWorker" in navigator) {
 }
 
 loadMonth();
+
