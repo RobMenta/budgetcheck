@@ -22,7 +22,13 @@
       font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text",system-ui,Segoe UI,Roboto,Arial;
       background:#0b0b0f; color:#fff;
     }
-    .wrap{ max-width:920px; margin:0 auto; padding:16px; padding-bottom:28px; }
+    .wrap{
+  max-width:920px;
+  margin:0 auto;
+  padding:16px;
+  padding-top: calc(16px + env(safe-area-inset-top));
+  padding-bottom: calc(28px + env(safe-area-inset-bottom));
+}
     .top{ display:flex; align-items:center; gap:10px; }
     .btnMonth{ width:44px;height:44px;border-radius:12px; background:#1a1a22; display:flex;align-items:center;justify-content:center; user-select:none; cursor:pointer;}
     h1{ margin:0; font-size:28px; font-weight:900; }
@@ -291,3 +297,4 @@
   <script src="app.js"></script>
 </body>
 </html>
+
