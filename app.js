@@ -214,14 +214,14 @@ function render() {
   els.coursesLimit.textContent = `${centsToEuro(courses.limitCents)} €`;
   els.coursesSpent.textContent = `${centsToEuro(courses.spentCents)} €`;
   els.coursesLeft.textContent = `${centsToEuro(courses.limitCents - courses.spentCents)} €`;
-  renderEntries(els.coursesEntries, courses.entries, () => deleteEnvelopeEntry("courses", null));
+  renderEntries(els.coursesEntries, courses.entries, (id) => deleteEnvelopeEntry("courses", id));
 
   // Plaisir
   const plaisir = state.envelopes.plaisir;
   els.funLimit.textContent = `${centsToEuro(plaisir.limitCents)} €`;
   els.funSpent.textContent = `${centsToEuro(plaisir.spentCents)} €`;
   els.funLeft.textContent = `${centsToEuro(plaisir.limitCents - plaisir.spentCents)} €`;
-  renderEntries(els.funEntries, plaisir.entries, () => deleteEnvelopeEntry("plaisir", null));
+  renderEntries(els.funEntries, plaisir.entries, (id) => deleteEnvelopeEntry("plaisir", id));
 
   // Izly
   els.izlyTotal.textContent = `${centsToEuro(state.izly.spentCents)} €`;
@@ -398,3 +398,4 @@ if ("serviceWorker" in navigator) {
 }
 
 loadMonth();
+
