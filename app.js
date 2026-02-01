@@ -63,6 +63,7 @@ function defaultMonthData() {
     },
     izly: { spentCents: 0, entries: [] },
     fuel: { spentCents: 0, entries: [] },
+    other: { spentCents: 0, entries: [] }, // ✅ Autres
   };
 }
 
@@ -81,6 +82,7 @@ const els = {
   kFixedPaid: document.getElementById("kFixedPaid"),
   kFixedRemaining: document.getElementById("kFixedRemaining"),
   kNetLeft: document.getElementById("kNetLeft"),
+  kCurrentLeft: document.getElementById("kCurrentLeft"), // ✅ NOUVEAU
 
   fixedBadge: document.getElementById("fixedBadge"),
   fixedList: document.getElementById("fixedList"),
@@ -108,11 +110,27 @@ const els = {
   fuelAmount: document.getElementById("fuelAmount"),
   fuelAdd: document.getElementById("fuelAdd"),
   fuelEntries: document.getElementById("fuelEntries"),
+
+  otherTotal: document.getElementById("otherTotal"),
+  otherAmount: document.getElementById("otherAmount"),
+  otherAdd: document.getElementById("otherAdd"),
+  otherEntries: document.getElementById("otherEntries"),
 };
+
+function ensureStateShape() {
+  // Pour éviter de casser tes mois déjà sauvegardés (v6) qui n'ont pas "other"
+  if (!state.other) state.other = { spentCents: 0, entries: [] };
+  if (!state.fuel) state.fuel = { spentCents: 0, entries: [] };
+  if (!state.izly) state.izly = { spentCents: 0, entries: [] };
+  if (!state.envelopes) state.envelopes = { courses: { limitCents: 20000, spentCents: 0, entries: [] }, plaisir: { limitCents: 20000, spentCents: 0, entries: [] } };
+  if (!state.envelopes.courses) state.envelopes.courses = { limitCents: 20000, spentCents: 0, entries: [] };
+  if (!state.envelopes.plaisir) state.envelopes.plaisir = { limitCents: 20000, spentCents: 0, entries: [] };
+}
 
 function loadMonth() {
   const all = loadAll();
   state = all[currentMonth] ?? defaultMonthData();
+  ensureStateShape();
   render();
 }
 function persist() {
@@ -141,10 +159,22 @@ function calc() {
 
   const izlySpent = state.izly.spentCents;
   const fuelSpent = state.fuel.spentCents;
+  const otherSpent = state.other.spentCents;
 
-  const netLeft = income - fixedTotal - izlySpent - fuelSpent;
+  const netLeft = income - fixedTotal - izlySpent - fuelSpent - otherSpent;
 
-  return { fixedTotal, fixedPaid, fixedRemaining, netLeft };
+  // ✅ Reste actuel : ce qui reste après ce que tu as déjà réellement sorti/consommé
+  // (fixes cochés + dépenses enregistrées)
+  const currentLeft =
+    income -
+    fixedPaid -
+    courses.spentCents -
+    plaisir.spentCents -
+    izlySpent -
+    fuelSpent -
+    otherSpent;
+
+  return { fixedTotal, fixedPaid, fixedRemaining, netLeft, currentLeft };
 }
 
 function render() {
@@ -156,6 +186,7 @@ function render() {
   els.kFixedPaid.textContent = `${centsToEuro(c.fixedPaid)} €`;
   els.kFixedRemaining.textContent = `${centsToEuro(c.fixedRemaining)} €`;
   els.kNetLeft.textContent = `${centsToEuro(c.netLeft)} €`;
+  if (els.kCurrentLeft) els.kCurrentLeft.textContent = `${centsToEuro(c.currentLeft)} €`;
 
   const paidCount = state.fixed.filter((e) => e.paid).length;
   els.fixedBadge.textContent = `${paidCount} / ${state.fixed.length} payées`;
@@ -230,6 +261,10 @@ function render() {
   // Essence
   els.fuelTotal.textContent = `${centsToEuro(state.fuel.spentCents)} €`;
   renderEntries(els.fuelEntries, state.fuel.entries, (id) => deleteCumulativeEntry("fuel", id));
+
+  // Autres
+  if (els.otherTotal) els.otherTotal.textContent = `${centsToEuro(state.other.spentCents)} €`;
+  if (els.otherEntries) renderEntries(els.otherEntries, state.other.entries, (id) => deleteCumulativeEntry("other", id));
 }
 
 /**
@@ -307,9 +342,13 @@ function deleteEnvelopeEntry(key, id) {
   render();
 }
 
-// Izly / Essence : on enlève l'entrée et on recalcule spent
+// Izly / Essence / Autres : on enlève l'entrée et on recalcule spent
 function deleteCumulativeEntry(which, id) {
-  const obj = which === "izly" ? state.izly : state.fuel;
+  const obj =
+    which === "izly" ? state.izly :
+    which === "fuel" ? state.fuel :
+    state.other;
+
   obj.entries = obj.entries.filter((e) => e.id !== id);
   recomputeCumulativeSpent(obj);
   persist();
@@ -366,6 +405,11 @@ els.izlyAdd.addEventListener("click", () => {
 els.fuelAdd.addEventListener("click", () => {
   if (addCumulativeSpend(state.fuel, els.fuelAmount.value)) els.fuelAmount.value = "";
 });
+if (els.otherAdd) {
+  els.otherAdd.addEventListener("click", () => {
+    if (addCumulativeSpend(state.other, els.otherAmount.value)) els.otherAmount.value = "";
+  });
+}
 
 // Salaire modifiable (sauvegarde quand tu changes)
 els.incomeInput.addEventListener("change", () => {
@@ -375,7 +419,7 @@ els.incomeInput.addEventListener("change", () => {
 });
 
 els.resetMonthBtn.addEventListener("click", () => {
-  if (!confirm("Reset du mois : décocher fixes + remettre Courses/Plaisir/Izly/Essence à zéro ?")) return;
+  if (!confirm("Reset du mois : décocher fixes + remettre Courses/Plaisir/Izly/Essence/Autres à zéro ?")) return;
   state.fixed = state.fixed.map((e) => ({ ...e, paid: false }));
   state.envelopes.courses.spentCents = 0;
   state.envelopes.courses.entries = [];
@@ -385,6 +429,8 @@ els.resetMonthBtn.addEventListener("click", () => {
   state.izly.entries = [];
   state.fuel.spentCents = 0;
   state.fuel.entries = [];
+  state.other.spentCents = 0;
+  state.other.entries = [];
   persist();
   render();
 });
@@ -397,5 +443,3 @@ if ("serviceWorker" in navigator) {
 }
 
 loadMonth();
-
-
