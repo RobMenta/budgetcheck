@@ -1,4 +1,4 @@
-const STORAGE_KEY = "budgetcheck:pwa:v3";
+const STORAGE_KEY = "budgetcheck:pwa:v4";
 
 function uid() {
   return Math.random().toString(16).slice(2) + Date.now().toString(16);
@@ -41,7 +41,7 @@ function saveAll(all) {
 
 function defaultMonthData() {
   return {
-    incomeCents: 200000, // 2000€
+    incomeCents: 200000, // valeur par défaut (modifiable via l'input)
     fixed: [
       // Appart
       { id: uid(), group: "Appart", name: "Loyer", amountCents: 65000, paid: false },
@@ -60,11 +60,11 @@ function defaultMonthData() {
       { id: uid(), group: "Perso", name: "Internet", amountCents: 2500, paid: false },
     ],
     envelopes: {
-      courses: { name: "Courses", limitCents: 20000, spentCents: 0, entries: [] },
-      plaisir: { name: "Plaisir", limitCents: 20000, spentCents: 0, entries: [] },
+      courses: { limitCents: 20000, spentCents: 0, entries: [] },
+      plaisir: { limitCents: 20000, spentCents: 0, entries: [] },
     },
     izly: { spentCents: 0, entries: [] },
-    fuel: { spentCents: 0, entries: [] }, // Essence (comme Izly)
+    fuel: { spentCents: 0, entries: [] }, // Essence
   };
 }
 
@@ -77,46 +77,37 @@ const els = {
   nextMonth: document.getElementById("nextMonth"),
   resetMonthBtn: document.getElementById("resetMonthBtn"),
 
-  // KPIs
-  kIncome: document.getElementById("kIncome"),
+  incomeInput: document.getElementById("incomeInput"),
+
   kFixedTotal: document.getElementById("kFixedTotal"),
   kFixedPaid: document.getElementById("kFixedPaid"),
   kFixedRemaining: document.getElementById("kFixedRemaining"),
   kNetLeft: document.getElementById("kNetLeft"),
 
-  // Fixes
   fixedBadge: document.getElementById("fixedBadge"),
   fixedList: document.getElementById("fixedList"),
 
-  // Courses
   coursesLeft: document.getElementById("coursesLeft"),
   coursesLimit: document.getElementById("coursesLimit"),
   coursesSpent: document.getElementById("coursesSpent"),
   coursesAmount: document.getElementById("coursesAmount"),
-  coursesNote: document.getElementById("coursesNote"),
   coursesAdd: document.getElementById("coursesAdd"),
   coursesEntries: document.getElementById("coursesEntries"),
 
-  // Plaisir
   funLeft: document.getElementById("funLeft"),
   funLimit: document.getElementById("funLimit"),
   funSpent: document.getElementById("funSpent"),
   funAmount: document.getElementById("funAmount"),
-  funNote: document.getElementById("funNote"),
   funAdd: document.getElementById("funAdd"),
   funEntries: document.getElementById("funEntries"),
 
-  // Izly
   izlyTotal: document.getElementById("izlyTotal"),
   izlyAmount: document.getElementById("izlyAmount"),
-  izlyNote: document.getElementById("izlyNote"),
   izlyAdd: document.getElementById("izlyAdd"),
   izlyEntries: document.getElementById("izlyEntries"),
 
-  // Essence
   fuelTotal: document.getElementById("fuelTotal"),
   fuelAmount: document.getElementById("fuelAmount"),
-  fuelNote: document.getElementById("fuelNote"),
   fuelAdd: document.getElementById("fuelAdd"),
   fuelEntries: document.getElementById("fuelEntries"),
 };
@@ -135,6 +126,7 @@ function persist() {
 function calc() {
   const income = state.incomeCents;
 
+  // Fixes Appart + Perso
   const fixedExpensesTotal = state.fixed.reduce((s, e) => s + e.amountCents, 0);
   const fixedPaid = state.fixed.reduce((s, e) => s + (e.paid ? e.amountCents : 0), 0);
   const unpaidFixed = fixedExpensesTotal - fixedPaid;
@@ -143,30 +135,28 @@ function calc() {
   const courses = state.envelopes.courses;
   const plaisir = state.envelopes.plaisir;
 
-  const budgetsTotal = courses.limitCents + plaisir.limitCents;
-  const budgetsRemaining = (courses.limitCents - courses.spentCents) + (plaisir.limitCents - plaisir.spentCents);
+  const budgetsTotal = courses.limitCents + plaisir.limitCents; // 200 + 200
+  const budgetsRemaining =
+    (courses.limitCents - courses.spentCents) +
+    (plaisir.limitCents - plaisir.spentCents);
 
   const fixedTotal = fixedExpensesTotal + budgetsTotal;
   const fixedRemaining = unpaidFixed + budgetsRemaining;
 
-  // Dépenses cumulées “en plus”
+  // Cumul “hors budgets”
   const izlySpent = state.izly.spentCents;
   const fuelSpent = state.fuel.spentCents;
 
-  // Reste dispo après avoir réservé Fixes+Budgets, puis on enlève Izly+Essence
+  // Reste sur salaire demandé
   const netLeft = income - fixedTotal - izlySpent - fuelSpent;
 
   return {
-    income,
     fixedTotal,
     fixedPaid,
     fixedRemaining,
-    coursesLeft: courses.limitCents - courses.spentCents,
-    coursesSpent: courses.spentCents,
-    coursesLimit: courses.limitCents,
-    funLeft: plaisir.limitCents - plaisir.spentCents,
-    funSpent: plaisir.spentCents,
-    funLimit: plaisir.limitCents,
+    netLeft,
+    courses,
+    plaisir,
     izlySpent,
     fuelSpent,
   };
@@ -174,20 +164,23 @@ function calc() {
 
 function render() {
   els.monthLabel.textContent = currentMonth;
+
+  // salaire input (affiché)
+  els.incomeInput.value = centsToEuro(state.incomeCents);
+
   const c = calc();
 
   // KPIs
-  els.kIncome.textContent = `${centsToEuro(c.income)} €`;
   els.kFixedTotal.textContent = `${centsToEuro(c.fixedTotal)} €`;
   els.kFixedPaid.textContent = `${centsToEuro(c.fixedPaid)} €`;
   els.kFixedRemaining.textContent = `${centsToEuro(c.fixedRemaining)} €`;
-  els.kNetLeft.textContent = `${centsToEuro(c.netLeft ?? (c.income - c.fixedTotal - c.izlySpent - c.fuelSpent))} €`;
+  els.kNetLeft.textContent = `${centsToEuro(c.netLeft)} €`;
 
   // Fixes badge
   const paidCount = state.fixed.filter((e) => e.paid).length;
   els.fixedBadge.textContent = `${paidCount} / ${state.fixed.length} payées`;
 
-  // Fixes list grouped
+  // Fixes list (Appart / Perso)
   els.fixedList.innerHTML = "";
   const groups = ["Appart", "Perso"];
   for (const g of groups) {
@@ -236,21 +229,23 @@ function render() {
     }
   }
 
-  // Envelopes UI
-  els.coursesLeft.textContent = `${centsToEuro(c.coursesLeft)} €`;
-  els.coursesLimit.textContent = `${centsToEuro(c.coursesLimit)} €`;
-  els.coursesSpent.textContent = `${centsToEuro(c.coursesSpent)} €`;
+  // Courses
+  els.coursesLimit.textContent = `${centsToEuro(state.envelopes.courses.limitCents)} €`;
+  els.coursesSpent.textContent = `${centsToEuro(state.envelopes.courses.spentCents)} €`;
+  els.coursesLeft.textContent = `${centsToEuro(state.envelopes.courses.limitCents - state.envelopes.courses.spentCents)} €`;
   renderEntries(els.coursesEntries, state.envelopes.courses.entries);
 
-  els.funLeft.textContent = `${centsToEuro(c.funLeft)} €`;
-  els.funLimit.textContent = `${centsToEuro(c.funLimit)} €`;
-  els.funSpent.textContent = `${centsToEuro(c.funSpent)} €`;
+  // Plaisir
+  els.funLimit.textContent = `${centsToEuro(state.envelopes.plaisir.limitCents)} €`;
+  els.funSpent.textContent = `${centsToEuro(state.envelopes.plaisir.spentCents)} €`;
+  els.funLeft.textContent = `${centsToEuro(state.envelopes.plaisir.limitCents - state.envelopes.plaisir.spentCents)} €`;
   renderEntries(els.funEntries, state.envelopes.plaisir.entries);
 
-  // Izly + Essence
+  // Izly
   els.izlyTotal.textContent = `${centsToEuro(state.izly.spentCents)} €`;
   renderEntries(els.izlyEntries, state.izly.entries);
 
+  // Essence
   els.fuelTotal.textContent = `${centsToEuro(state.fuel.spentCents)} €`;
   renderEntries(els.fuelEntries, state.fuel.entries);
 }
@@ -269,7 +264,7 @@ function renderEntries(container, entries) {
 
     const main = document.createElement("div");
     main.className = "entryMain";
-    main.textContent = it.note ? it.note : "Dépense";
+    main.textContent = "Dépense";
 
     const sub = document.createElement("div");
     sub.className = "entrySub";
@@ -284,35 +279,32 @@ function renderEntries(container, entries) {
 
     row.appendChild(left);
     row.appendChild(right);
-
     container.appendChild(row);
   }
 }
 
-function addEnvelopeSpend(key, amountStr, noteStr) {
+function addEnvelopeSpend(key, amountStr) {
   const amountCents = euroToCents(amountStr);
-  const note = (noteStr || "").trim();
   if (!amountCents || amountCents <= 0) {
     alert("Montant invalide (ex: 4,50).");
     return false;
   }
   const env = state.envelopes[key];
   env.spentCents += amountCents;
-  env.entries.push({ id: uid(), ts: Date.now(), amountCents, note });
+  env.entries.push({ id: uid(), ts: Date.now(), amountCents });
   persist();
   render();
   return true;
 }
 
-function addCumulativeSpend(obj, amountStr, noteStr) {
+function addCumulativeSpend(obj, amountStr) {
   const amountCents = euroToCents(amountStr);
-  const note = (noteStr || "").trim();
   if (!amountCents || amountCents <= 0) {
     alert("Montant invalide (ex: 10,00).");
     return false;
   }
   obj.spentCents += amountCents;
-  obj.entries.push({ id: uid(), ts: Date.now(), amountCents, note });
+  obj.entries.push({ id: uid(), ts: Date.now(), amountCents });
   persist();
   render();
   return true;
@@ -330,28 +322,23 @@ els.prevMonth.addEventListener("click", () => goMonth(-1));
 els.nextMonth.addEventListener("click", () => goMonth(+1));
 
 els.coursesAdd.addEventListener("click", () => {
-  if (addEnvelopeSpend("courses", els.coursesAmount.value, els.coursesNote.value)) {
-    els.coursesAmount.value = "";
-    els.coursesNote.value = "";
-  }
+  if (addEnvelopeSpend("courses", els.coursesAmount.value)) els.coursesAmount.value = "";
 });
 els.funAdd.addEventListener("click", () => {
-  if (addEnvelopeSpend("plaisir", els.funAmount.value, els.funNote.value)) {
-    els.funAmount.value = "";
-    els.funNote.value = "";
-  }
+  if (addEnvelopeSpend("plaisir", els.funAmount.value)) els.funAmount.value = "";
 });
 els.izlyAdd.addEventListener("click", () => {
-  if (addCumulativeSpend(state.izly, els.izlyAmount.value, els.izlyNote.value)) {
-    els.izlyAmount.value = "";
-    els.izlyNote.value = "";
-  }
+  if (addCumulativeSpend(state.izly, els.izlyAmount.value)) els.izlyAmount.value = "";
 });
 els.fuelAdd.addEventListener("click", () => {
-  if (addCumulativeSpend(state.fuel, els.fuelAmount.value, els.fuelNote.value)) {
-    els.fuelAmount.value = "";
-    els.fuelNote.value = "";
-  }
+  if (addCumulativeSpend(state.fuel, els.fuelAmount.value)) els.fuelAmount.value = "";
+});
+
+// Salaire modifiable (on sauvegarde quand tu changes la valeur)
+els.incomeInput.addEventListener("change", () => {
+  state.incomeCents = euroToCents(els.incomeInput.value);
+  persist();
+  render();
 });
 
 els.resetMonthBtn.addEventListener("click", () => {
