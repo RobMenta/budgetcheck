@@ -186,7 +186,10 @@ function render() {
   els.kFixedPaid.textContent = `${centsToEuro(c.fixedPaid)} €`;
   els.kFixedRemaining.textContent = `${centsToEuro(c.fixedRemaining)} €`;
   els.kNetLeft.textContent = `${centsToEuro(c.netLeft)} €`;
-  if (els.kCurrentLeft) els.kCurrentLeft.textContent = `${centsToEuro(c.currentLeft)} €`;
+
+  // ✅ MODIF UNIQUEMENT ICI : on met à jour "Reste actuel" même si els.kCurrentLeft était null au départ
+  const currentEl = els.kCurrentLeft || document.getElementById("kCurrentLeft");
+  if (currentEl) currentEl.textContent = `${centsToEuro(c.currentLeft)} €`;
 
   const paidCount = state.fixed.filter((e) => e.paid).length;
   els.fixedBadge.textContent = `${paidCount} / ${state.fixed.length} payées`;
